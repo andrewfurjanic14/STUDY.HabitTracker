@@ -3,9 +3,9 @@ using System.Runtime.CompilerServices;
 
 namespace HabitTracker
 {
-    internal class Program
+    public class Program
     {
-        static void Main(string[] args)
+        public static void Main(string[] args)
         {
             var db = new DataAccess();
 
@@ -31,7 +31,7 @@ namespace HabitTracker
                             break;
                         }
                         string unit = db.GetEntryMeasurement(entries[0]);
-                            
+
                         foreach (Entry e in entries)
                         {
                             Console.WriteLine($"{e} {unit}");
@@ -58,8 +58,13 @@ namespace HabitTracker
                             
                         db.CreateHabit(new Habit() { Name = name, Measurement = measurement });
                         break;
-                    case 3: // Log Existing Habit
-                        Habit habit = RequestHabit(db);
+                    case 3: // Log Entry for Existing Habit
+                        Habit? habit = RequestHabit(db);
+                        if (habit is null)
+                        {
+                            Console.WriteLine("There are currently no habits to choose from");
+                            break;
+                        }
                         Entry entry = new Entry() { HabitId = habit.Id };
                         Console.Write("Choose a quantity to log: ");
                         bool valid = float.TryParse(Console.ReadLine(), out float qty);
@@ -86,9 +91,111 @@ namespace HabitTracker
 
                         db.CreateEntry(entry);
                         break;
-                    case 4: // Delete Habit
+                    case 4: // Delete Habit Entry
+                        chosenHabit = RequestHabit(db);
+                        if (chosenHabit is null)
+                        {
+                            Console.WriteLine("There are currently no habits to choose from");
+                            break;
+                        }
+
+                        entries = db.GetHabitEntries(chosenHabit);
+                        if (entries.Count <= 0)
+                        {
+                            Console.WriteLine("Nothing has been logged to this habit yet.");
+                            break;
+                        }
+                        unit = db.GetEntryMeasurement(entries[0]);
+
+                        Console.WriteLine("Choose which entry to delete:");
+                        int j = 1;
+                        foreach (Entry e in entries)
+                        {
+                            Console.WriteLine($"{j}. {e} {unit}");
+                            j++;
+                        }
+
+                        valid = int.TryParse(Console.ReadLine(), out int inputValue);
+                        while (!valid || inputValue < 1 || inputValue > entries.Count)
+                        {
+                            Console.WriteLine("Unknown command. Try again.");
+                            valid = int.TryParse(Console.ReadLine(), out inputValue);
+                        }
+                        db.DeleteEntry(entries[inputValue - 1]);
                         break;
-                    case 5: // Update Habit
+                    case 5: // Update Habit Entry
+                        chosenHabit = RequestHabit(db);
+                        if (chosenHabit is null)
+                        {
+                            Console.WriteLine("There are currently no habits to choose from");
+                            break;
+                        }
+
+                        entries = db.GetHabitEntries(chosenHabit);
+                        if (entries.Count <= 0)
+                        {
+                            Console.WriteLine("Nothing has been logged to this habit yet.");
+                            break;
+                        }
+                        unit = db.GetEntryMeasurement(entries[0]);
+
+                        Console.WriteLine("Choose which entry to update:");
+                        j = 1;
+                        foreach (Entry e in entries)
+                        {
+                            Console.WriteLine($"{j}. {e} {unit}");
+                            j++;
+                        }
+
+                        valid = int.TryParse(Console.ReadLine(), out inputValue);
+                        while (!valid || inputValue < 1 || inputValue > entries.Count)
+                        {
+                            Console.WriteLine("Unknown command. Try again.");
+                            valid = int.TryParse(Console.ReadLine(), out inputValue);
+                        }
+                        Entry oldEntry = entries[inputValue - 1];
+
+                        // Pick new value(s)
+                        // New qty
+                        Console.Write("Choose a new quantity or press ENTER to keep the old one: ");
+                        input = Console.ReadLine();
+                        valid = float.TryParse(input, out qty);
+                        while ((!valid && input != string.Empty) || qty < 0)
+                        {
+                            Console.WriteLine("Unknown command detected. Try again.");
+                            input = Console.ReadLine();
+                            valid = float.TryParse(input, out qty);
+                        }
+                        float? newQty;
+                        if (input == string.Empty)
+                            newQty = null;
+                        else
+                            newQty = qty;
+
+                        // New date
+                        Console.WriteLine("Choose a date to log, or just press ENTER to keep the old one" +
+                                          "\n\tFormat as MM/DD/YYYY");
+                        input = Console.ReadLine();
+                        valid = DateTime.TryParse(input, out date);
+                        while (!valid && input != string.Empty)
+                        {
+                            Console.WriteLine("Unknown command detected. Try again.");
+                            input = Console.ReadLine();
+                            valid = DateTime.TryParse(input, out date);
+                        }
+                        DateTime? newDate;
+                        if (input == string.Empty)
+                            newDate = null;
+                        else
+                            newDate = date;
+
+                        if (newDate is null && newQty is null)
+                        {
+                            Console.WriteLine("You changed nothing about the entry.");
+                            break;
+                        }
+
+                        db.UpdateEntry(oldEntry, newDate, newQty);
                         break;
                     case 6:
                         menu = false;
@@ -111,6 +218,8 @@ namespace HabitTracker
                               "\n\t6. Exit");
         }
 
+        // Prints UI to select from current habits, then returns the chosen habit. 
+        // Returns null if there are no habits to choose from
         static Habit? RequestHabit(DataAccess db)
         {
             Console.WriteLine("Choose from your existing habits:");

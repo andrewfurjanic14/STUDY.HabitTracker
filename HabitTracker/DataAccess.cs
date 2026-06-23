@@ -6,7 +6,7 @@ using System.Text;
 
 namespace HabitTracker
 {
-    internal class DataAccess
+    public class DataAccess
     {
         private readonly string _connectionString;
 
@@ -103,6 +103,62 @@ namespace HabitTracker
             }
         }
 
+        public void DeleteEntry(Entry entry)
+        {
+            string sql = "DELETE FROM Entries " +
+                         "WHERE Id = @id;";
+            try
+            {
+                using var con = new SqliteConnection(_connectionString);
+                con.Open();
+                using var cmd = new SqliteCommand(sql, con);
+                cmd.Parameters.AddWithValue("@id", entry.Id);
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+        }
+
+        // Takes at least one non-null entry field to update and update the entry param
+        public void UpdateEntry(Entry entry, DateTime? dt, float? qty)
+        {
+            string sql = (dt, qty) switch
+            {
+                (null, not null) => "UPDATE Entries " +
+                                    "SET Quantity = @qty " +
+                                    "WHERE Id = @id;",
+
+                (not null, null) => "UPDATE Entries " +
+                                    "SET Date = @date " +
+                                    "WHERE Id = @id;",
+
+                _ =>                "UPDATE Entries " +
+                                    "SET Date = @date, " +
+                                        "Quantity = @qty " +
+                                    "WHERE Id = @id;"
+            };
+            
+            try
+            {
+                using var con = new SqliteConnection(_connectionString);
+                con.Open();
+                using var cmd = new SqliteCommand(sql, con);
+                cmd.Parameters.AddWithValue("@id", entry.Id);
+                if (dt is not null)
+                    cmd.Parameters.AddWithValue("@date", dt);
+                if (qty is not null)
+                    cmd.Parameters.AddWithValue("qty", qty);
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+        }
+
+        // Given a habit, return a list of all entries of that habit
         public List<Entry> GetHabitEntries(Habit habit)
         {
             List<Entry> result = new List<Entry>();
@@ -134,6 +190,7 @@ namespace HabitTracker
             return result;
         }
 
+        // Return a list of all habits
         public List<Habit> GetHabits()
         {
             List<Habit> result = new List<Habit>();
@@ -162,6 +219,7 @@ namespace HabitTracker
             return result;
         }
 
+        // Given an entry, return the measurement used for that entry's habit
         public string GetEntryMeasurement(Entry entry)
         {
             string result = "";
@@ -187,5 +245,6 @@ namespace HabitTracker
 
             return result;
         }
+
     }
 }
